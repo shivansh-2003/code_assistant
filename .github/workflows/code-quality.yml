@@ -1,0 +1,149 @@
+name: Code Quality Check
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - '**.py'
+      - '**.js'
+      - '**.jsx'
+      - '.github/workflows/code-quality.yml'
+
+jobs:
+  analyze-code:
+    name: Analyze Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Detect changed files
+        id: changed-files
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            code:
+              - '**/*.py'
+              - '**/*.js'
+              - '**/*.jsx'
+      
+      - name: Run code analysis
+        if: steps.changed-files.outputs.code == 'true'
+        id: code-analysis
+        run: |
+          mkdir -p analysis-results
+          
+          # Create a function to analyze files
+          analyze_file() {
+            file=$1
+            model="gpt-3.5-turbo"  # Using a faster model for CI/CD
+            echo "Analyzing $file..."
+            
+            # Run the analyzer and save results
+            output_file="analysis-results/$(basename $file)_analysis.json"
+            python code-analyzer.py "$file" --model "$model" --save
+            
+            # Move the generated file to the designated location
+            mv "$(basename $file)"_*_analysis.json "$output_file" 2>/dev/null || true
+            
+            echo "Analysis complete for $file - results in $output_file"
+          }
+          
+          # Find all relevant files that were changed
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # For pull requests, analyze only changed files
+            CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRT ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep -E '\.(py|js|jsx)$' || true)
+          else
+            # For direct commits, analyze recently changed files
+            CHANGED_FILES=$(git diff --name-only HEAD HEAD~1 | grep -E '\.(py|js|jsx)$' || true)
+          fi
+          
+          # If no relevant files were changed, exit
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No relevant code files changed."
+            echo "analysis_result<<EOF" >> $GITHUB_OUTPUT
+            echo "No code files to analyze in this change." >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Analyze each changed file
+          analysis_summary=""
+          for file in $CHANGED_FILES; do
+            if [ -f "$file" ]; then
+              analyze_file "$file"
+              
+              # Extract the overall score and top recommendations for the summary
+              if [ -f "analysis-results/$(basename $file)_analysis.json" ]; then
+                file_score=$(jq -r '.overall_score' "analysis-results/$(basename $file)_analysis.json")
+                recommendations=$(jq -r '.recommendations | join("\n- ")' "analysis-results/$(basename $file)_analysis.json")
+                
+                analysis_summary+="## $file - Score: $file_score/100\n\n"
+                analysis_summary+="### Recommendations:\n\n"
+                analysis_summary+="- $recommendations\n\n"
+              fi
+            fi
+          done
+          
+          # Save the summary to GitHub output
+          echo "analysis_result<<EOF" >> $GITHUB_OUTPUT
+          echo "$analysis_summary" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          # Create a summary file
+          echo "$analysis_summary" > analysis-results/summary.md
+          
+      - name: Upload analysis results
+        if: steps.changed-files.outputs.code == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: code-analysis-results
+          path: analysis-results/
+          retention-days: 7
+      
+      - name: Comment on Pull Request
+        if: github.event_name == 'pull_request' && steps.changed-files.outputs.code == 'true'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const analysisSummary = `${{ steps.code-analysis.outputs.analysis_result }}`;
+            
+            if (analysisSummary.trim()) {
+              const body = `# Code Quality Analysis Results 🔍
+            
+            ${analysisSummary}
+            
+            _This analysis was performed automatically by Carbon Crunch Code Analyzer._`;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }
+      
+      - name: Comment on Commit
+        if: github.event_name == 'push' && steps.changed-files.outputs.code == 'true'
+        uses: peter-evans/commit-comment@v2
+        with:
+          body: |
+            # Code Quality Analysis Results 🔍
+            
+            ${{ steps.code-analysis.outputs.analysis_result }}
+            
+            _This analysis was performed automatically by Carbon Crunch Code Analyzer._
