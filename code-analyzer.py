@@ -8,11 +8,13 @@ from io import StringIO
 from typing import Dict, Any, List, Tuple, Optional
 import datetime
 
+
 # Import LangChain components
-from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
-from langchain.output_parsers import JsonOutputParser
+from langchain_core.output_parsers import JsonOutputParser
 from langchain.schema import HumanMessage, SystemMessage
+
 
 # Load environment variables - you'll need to set OPENAI_API_KEY
 from dotenv import load_dotenv
