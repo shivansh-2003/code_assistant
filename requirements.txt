@@ -1,0 +1,30 @@
+# Core dependencies
+fastapi
+uvicorn
+python-multipart
+python-dotenv
+
+# LangChain and AI components
+langchain
+langchain-openai
+openai
+
+# Code analysis tools
+astroid
+pylint
+flake8
+black
+
+# Parsing and utilities
+pydantic
+jinja2
+typing-extensions
+httpx
+
+# Testing
+pytest
+pytest-cov
+
+# Development tools
+pre-commit
+mypy
