@@ -29,3 +29,4 @@ pytest-cov
 # Development tools
 pre-commit
 mypy
+jq
