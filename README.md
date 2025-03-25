@@ -17,7 +17,7 @@ tags: []
 <p align="center">
   <img src="https://github.com/username/carbon-crunch/raw/main/docs/assets/carbon-crunch-logo.png" alt="Carbon Crunch Logo" width="200"/>
 </p>
-![Uploading Screenshot 2025-03-25 at 1.48.22 PM (2).png…]()
+
 
 ---
 
