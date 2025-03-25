@@ -1,5 +1,6 @@
 from fastapi import FastAPI, File, UploadFile, Form, BackgroundTasks, HTTPException, Depends, Path
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, Dict, Any
 import tempfile
 import os
@@ -25,6 +26,15 @@ app = FastAPI(
     title="Code Quality Analyzer API",
     description="API for analyzing code quality across multiple programming languages",
     version="1.0.0"
+)
+
+# Add CORS middleware to allow frontend to connect
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # Vite's default dev server port
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Directory to store temporary uploaded files
@@ -138,4 +148,4 @@ async def get_models():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(app, host="0.0.0.0", port=8000)
